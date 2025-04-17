@@ -7,34 +7,43 @@ services:
     ports:
       - 8000:80
     depends_on:
-      - backend
-      - frontend
+      frontend:
+        condition: service_started  # Attendre que le service soit démarré
+      backend:
+        condition: service_started
+    networks:
+      - app-network
+    restart: on-failure
+
   frontend:
-    image: "node:22"
-    user: "node"
-    working_dir: /home/node/app
+    image: "node:16-alpine"  # Utiliser une image Alpine plus légère
+    working_dir: /app
     environment:
       - NODE_ENV=development
       - WDS_SOCKET_PORT=0
     volumes:
-      - ./frontend/:/home/node/app
-    expose:
-      - "3000"
+      - ./frontend:/app
     ports:
       - "3000:3000"
-    command: "npm start"
+    command: sh -c "npm install && npm start"  # Utiliser sh au lieu de bash avec Alpine
+    networks:
+      - app-network
+
   backend:
-    image: todo-app/backend
-    build: ./backend
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
     volumes:
-      - ./backend/:/usr/src/app
-    expose:
-      - "3001"
+      - ./backend:/usr/src/app
     ports:
       - "8001:3001"
     command: "python src/server.py"
     environment:
       - DEBUG=true
-    env_file:
-      - path: ./.env
-        required: true
+      - MONGODB_URI=mongodb+srv://gaouditz:Fast-api@cluster0.mxzeyxz.mongodb.net/todo-app?retryWrites=true&w=majority&appName=Cluster0
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
